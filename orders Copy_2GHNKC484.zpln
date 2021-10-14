@@ -1,0 +1,442 @@
+﻿{
+  "paragraphs": [
+    {
+      "title": "Read Source Database",
+      "text": "%spark.pyspark\n# ==========================================\n# Connection Properties\n# ==========================================\ndBHost = \"168.138.196.123\"\ndBPort = \"3306\"\ndBSID = \"\"\ndBName = \"inventory\"\ndBUsername = \"root\"\ndBPassword = \"debezium\"\ndBQuery = \"\"\"SELECT * FROM orders\"\"\"\nprimaryColumnName = \"order_number\"\n# ==========================================\n\nif \"MySQL\"==\"Oracle\":\n    df = spark.read \\\n        .format(\"jdbc\") \\\n        .option(\"url\", f\"jdbc:oracle:thin:@{dBHost}:{dBPort}/{dBSID}\") \\\n        .option(\"query\", dBQuery) \\\n        .option(\"password\", dBPassword) \\\n        .option(\"user\", dBUsername) \\\n        .option(\"driver\", \"oracle.jdbc.driver.OracleDriver\") \\\n        .load()\n        \nelif \"MySQL\"==\"Postgres\":\n    df = spark.read \\\n        .format(\"jdbc\") \\\n        .option(\"url\", f\"jdbc:postgresql://{dBHost}:{dBPort}/{dBName}\") \\\n        .option(\"query\", dBQuery) \\\n        .option(\"password\", dBPassword) \\\n        .option(\"user\", dBUsername) \\\n        .option(\"driver\", \"org.postgresql.Driver\")\n    if \"\" == \"True\":\n        df = df.option(\"sslmode\", \"require\")\n    df = df.load()\n    \nelif \"MySQL\"==\"MySQL\":\n    df = spark.read \\\n        .format(\"jdbc\") \\\n        .option(\"url\", f\"jdbc:mysql://{dBHost}:{dBPort}/{dBName}\") \\\n        .option(\"query\", dBQuery) \\\n        .option(\"password\", dBPassword) \\\n        .option(\"user\", dBUsername)\n    if \"\" == \"True\":\n        df = df.option(\"sslmode\", \"require\")\n    df = df.load()\n        \n# Set order by column for SortOrder\ndf = df.orderBy(\"order_number\")\n\n# Store results in temp table\ndf.createOrReplaceTempView(\"tempTable_1634011621426\")",
+      "user": "anonymous",
+      "dateUpdated": "2021-10-12T05:51:22+0000",
+      "progress": 0,
+      "config": {
+        "tableHide": false,
+        "editorSetting": {
+          "language": "python",
+          "completionKey": "TAB",
+          "editOnDblClick": false,
+          "completionSupport": true
+        },
+        "colWidth": 12,
+        "editorMode": "ace/mode/python",
+        "fontSize": 9,
+        "editorHide": false,
+        "title": true,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": []
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1634014866181_1398273890",
+      "id": "paragraph_1634011621621_1961105376",
+      "dateCreated": "2021-10-12T05:01:06+0000",
+      "dateStarted": "2021-10-12T05:51:22+0000",
+      "dateFinished": "2021-10-12T05:51:23+0000",
+      "status": "FINISHED",
+      "focus": true,
+      "$$hashKey": "object:186"
+    },
+    {
+      "title": "Create Table If Not Exist",
+      "text": "%spark.sql\n-- Create table if not exist\nCREATE TABLE IF NOT EXISTS cuelake.orders USING iceberg \n  TBLPROPERTIES (\n        'write.metadata.delete-after-commit.enabled'= 'true',\n       'write.metadata.previous-versions-max' = 2,\n       'history.expire.max-snapshot-age-ms' = '60000',\n       'history.expire.min-snapshots-to-keep' = 1,\n       'write.spark.fanout.enabled' = 'true',\n        'write.metadata.metrics.default' = 'none'\n   )\n  AS SELECT /*+ COALESCE(1) */ * from tempTable_1634011621426",
+      "user": "anonymous",
+      "dateUpdated": "2021-10-12T05:51:29+0000",
+      "progress": 0,
+      "config": {
+        "editorSetting": {
+          "language": "sql",
+          "completionKey": "TAB",
+          "editOnDblClick": false,
+          "completionSupport": true
+        },
+        "colWidth": 12,
+        "editorMode": "ace/mode/sql",
+        "fontSize": 9,
+        "editorHide": false,
+        "title": true,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": []
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1634014866181_1298343400",
+      "id": "paragraph_1634011621633_1142933343",
+      "dateCreated": "2021-10-12T05:01:06+0000",
+      "dateStarted": "2021-10-12T05:51:29+0000",
+      "dateFinished": "2021-10-12T05:51:29+0000",
+      "status": "FINISHED",
+      "$$hashKey": "object:187"
+    },
+    {
+      "title": "Iceberg Table Optimizations",
+      "text": "%spark\nval tableName = \"orders\"\n\nimport org.apache.iceberg.actions.Actions;\nimport org.apache.iceberg.hadoop.HadoopCatalog;\nval catalog = new HadoopCatalog(sc.hadoopConfiguration, sc.getConf.get(\"spark.sql.catalog.cuelake.warehouse\"));\n\nimport org.apache.iceberg.Table;\nimport org.apache.iceberg.catalog.TableIdentifier;\n\nval name = TableIdentifier.of(tableName);\nval table = catalog.loadTable(name);\n\n// Expire older snapshots and commit\ntable.expireSnapshots().commit()\n\n// Run Compaction for table\nActions.forTable(table).rewriteDataFiles()\n    .targetSizeInBytes(500 * 1024 * 1024 * 10) // 5000 MB\n    .execute();",
+      "user": "anonymous",
+      "dateUpdated": "2021-10-12T05:51:33+0000",
+      "progress": 100,
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "completionKey": "TAB",
+          "editOnDblClick": false,
+          "completionSupport": true
+        },
+        "colWidth": 12,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9,
+        "title": true,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "\u001b[1m\u001b[34mtableName\u001b[0m: \u001b[1m\u001b[32mString\u001b[0m = orders\nimport org.apache.iceberg.actions.Actions\nimport org.apache.iceberg.hadoop.HadoopCatalog\n\u001b[1m\u001b[34mcatalog\u001b[0m: \u001b[1m\u001b[32morg.apache.iceberg.hadoop.HadoopCatalog\u001b[0m = HadoopCatalog{name=hadoop, location=hdfs://168.138.196.123:8020/cuelake}\nimport org.apache.iceberg.Table\nimport org.apache.iceberg.catalog.TableIdentifier\n\u001b[1m\u001b[34mname\u001b[0m: \u001b[1m\u001b[32morg.apache.iceberg.catalog.TableIdentifier\u001b[0m = orders\n\u001b[1m\u001b[34mtable\u001b[0m: \u001b[1m\u001b[32morg.apache.iceberg.Table\u001b[0m = hadoop.orders\n\u001b[1m\u001b[34mres2\u001b[0m: \u001b[1m\u001b[32morg.apache.iceberg.actions.RewriteDataFilesActionResult\u001b[0m = org.apache.iceberg.actions.RewriteDataFilesActionResult@5d8f0466\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "//4040-spark-fiieau.local.zeppelin-project.org:8080/jobs/job?id=12",
+              "$$hashKey": "object:534"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1634014866181_860330261",
+      "id": "paragraph_1634011621642_926304860",
+      "dateCreated": "2021-10-12T05:01:06+0000",
+      "dateStarted": "2021-10-12T05:51:33+0000",
+      "dateFinished": "2021-10-12T05:51:36+0000",
+      "status": "FINISHED",
+      "$$hashKey": "object:188"
+    },
+    {
+      "title": "Get Timestamp From Destination Table",
+      "text": "%spark.pyspark\nmaxVal=spark.sql(f\"SELECT MAX(order_date) FROM cuelake.orders\").collect()[0][0]\nz.put(\"tempTable_1634011621426_val\", maxVal)\nprint(\"Timestamp value in target table: \" + str(maxVal))",
+      "user": "anonymous",
+      "dateUpdated": "2021-10-12T05:51:51+0000",
+      "progress": 0,
+      "config": {
+        "editorSetting": {
+          "language": "python",
+          "completionKey": "TAB",
+          "editOnDblClick": false,
+          "completionSupport": true
+        },
+        "colWidth": 12,
+        "editorMode": "ace/mode/python",
+        "fontSize": 9,
+        "title": true,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "Timestamp value in target table: 2019-06-01\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "//4040-spark-fiieau.local.zeppelin-project.org:8080/jobs/job?id=13",
+              "$$hashKey": "object:580"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1634014866181_558680836",
+      "id": "paragraph_1634011621653_1146254155",
+      "dateCreated": "2021-10-12T05:01:06+0000",
+      "dateStarted": "2021-10-12T05:51:51+0000",
+      "dateFinished": "2021-10-12T05:51:51+0000",
+      "status": "FINISHED",
+      "$$hashKey": "object:189"
+    },
+    {
+      "text": "%spark.sql\nselect * from  cuelake.orders;\n",
+      "user": "anonymous",
+      "dateUpdated": "2021-10-12T05:52:31+0000",
+      "progress": 0,
+      "config": {
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12,
+        "editorMode": "ace/mode/sql",
+        "fontSize": 9,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "order_number": "string",
+                      "order_date": "string",
+                      "purchaser": "string",
+                      "quantity": "string",
+                      "product_id": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "order_number\torder_date\tpurchaser\tquantity\tproduct_id\n10001\t2016-01-16\t1001\t1\t102\n10002\t2016-01-17\t1002\t2\t105\n10003\t2016-02-19\t1002\t2\t106\n10004\t2016-02-21\t1003\t1\t107\n10005\t2019-06-01\t1004\t3\t108\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "//4040-spark-fiieau.local.zeppelin-project.org:8080/jobs/job?id=18",
+              "$$hashKey": "object:626"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1634014866183_1739246253",
+      "id": "paragraph_1634013384411_1881346472",
+      "dateCreated": "2021-10-12T05:01:06+0000",
+      "dateStarted": "2021-10-12T05:52:31+0000",
+      "dateFinished": "2021-10-12T05:52:31+0000",
+      "status": "FINISHED",
+      "$$hashKey": "object:190"
+    },
+    {
+      "title": "Update Iceberg Table Properties",
+      "text": "%spark.sql\n-- SQL Query to configure sort order\nALTER TABLE cuelake.orders WRITE ORDERED BY order_number;",
+      "user": "anonymous",
+      "dateUpdated": "2021-10-12T05:45:24+0000",
+      "progress": 0,
+      "config": {
+        "editorSetting": {
+          "language": "sql",
+          "completionKey": "TAB",
+          "editOnDblClick": false,
+          "completionSupport": true
+        },
+        "colWidth": 12,
+        "editorMode": "ace/mode/sql",
+        "fontSize": 9,
+        "title": true,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": []
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1634014866181_1197523913",
+      "id": "paragraph_1634011621662_625329570",
+      "dateCreated": "2021-10-12T05:01:06+0000",
+      "dateStarted": "2021-10-12T05:45:24+0000",
+      "dateFinished": "2021-10-12T05:45:24+0000",
+      "status": "FINISHED",
+      "$$hashKey": "object:191"
+    },
+    {
+      "title": "Merge New Data",
+      "text": "%spark.pyspark\nmergeSql = f\"MERGE INTO cuelake.orders t USING (SELECT * from tempTable_1634011621426 where order_date > \\\"{z.get('tempTable_1634011621426_val')}\\\") u ON t.order_number = u.order_number WHEN MATCHED THEN UPDATE SET * WHEN NOT MATCHED THEN INSERT *\"\nprint(\"Executing SQL: \" + mergeSql)\nspark.sql(mergeSql)",
+      "user": "anonymous",
+      "dateUpdated": "2021-10-12T05:51:57+0000",
+      "progress": 49,
+      "config": {
+        "tableHide": true,
+        "editorSetting": {
+          "language": "python",
+          "completionKey": "TAB",
+          "editOnDblClick": false,
+          "completionSupport": true
+        },
+        "colWidth": 12,
+        "editorMode": "ace/mode/python",
+        "fontSize": 9,
+        "editorHide": false,
+        "title": true,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "Executing SQL: MERGE INTO cuelake.orders t USING (SELECT * from tempTable_1634011621426 where order_date > \"2019-06-01\") u ON t.order_number = u.order_number WHEN MATCHED THEN UPDATE SET * WHEN NOT MATCHED THEN INSERT *\nDataFrame[]"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "//4040-spark-fiieau.local.zeppelin-project.org:8080/jobs/job?id=15",
+              "$$hashKey": "object:712"
+            },
+            {
+              "jobUrl": "//4040-spark-fiieau.local.zeppelin-project.org:8080/jobs/job?id=16",
+              "$$hashKey": "object:713"
+            },
+            {
+              "jobUrl": "//4040-spark-fiieau.local.zeppelin-project.org:8080/jobs/job?id=17",
+              "$$hashKey": "object:714"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1634014866181_110935692",
+      "id": "paragraph_1634011621670_1809660280",
+      "dateCreated": "2021-10-12T05:01:06+0000",
+      "dateStarted": "2021-10-12T05:51:57+0000",
+      "dateFinished": "2021-10-12T05:52:17+0000",
+      "status": "FINISHED",
+      "$$hashKey": "object:192"
+    },
+    {
+      "text": "%spark.pyspark\n",
+      "user": "anonymous",
+      "dateUpdated": "2021-10-12T05:41:21+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "fontSize": 9,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/python"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1634017281224_127673324",
+      "id": "paragraph_1634017281224_127673324",
+      "dateCreated": "2021-10-12T05:41:21+0000",
+      "status": "READY",
+      "$$hashKey": "object:193"
+    }
+  ],
+  "name": "orders Copy",
+  "id": "2GHNKC484",
+  "defaultInterpreterGroup": "spark",
+  "version": "0.10.0-SNAPSHOT",
+  "noteParams": {},
+  "noteForms": {},
+  "angularObjects": {},
+  "config": {
+    "isZeppelinNotebookCronEnable": false,
+    "looknfeel": "default",
+    "personalizedMode": "false"
+  },
+  "info": {},
+  "path": "/orders Copy"
+}
